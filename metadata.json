@@ -1,0 +1,5 @@
+{
+  "name": "Chronos: 3D 时光隧道",
+  "description": "基于 Three.js 和 GSAP 构建的沉浸式 3D 照片墙，具有平滑滚动的时光隧道布局和电影级后期特效。",
+  "requestFramePermissions": []
+}

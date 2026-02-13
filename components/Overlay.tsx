@@ -1,6 +1,6 @@
 
-import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Plus, Settings, ArrowLeft, Search, Filter, X, Zap, Volume2, Loader2, Music, Play, Pause, Download, Trash2, RefreshCw, AlertTriangle, Upload, Clock } from 'lucide-react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { Plus, Settings, ArrowLeft, Search, Filter, X, Zap, Volume2, Loader2, Music, Play, Pause, Download, Trash2, RefreshCw, AlertTriangle, Upload, Clock, ChevronDown } from 'lucide-react';
 import { PhotoData } from '../types';
 import { translations } from '../translations';
 import ManagementPanel from './ManagementPanel';
@@ -104,6 +104,19 @@ const Overlay: React.FC<OverlayProps> = ({
       el.removeEventListener('scroll', handleSync);
     };
   }, [filteredPhotos.length]);
+
+  // ESC 键关闭详情卡/管理面板
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (focusedPhoto) { onCloseDetail(); setShowDeleteConfirm(false); }
+        else if (isPanelOpen) setIsPanelOpen(false);
+        else if (pendingFiles.length > 0) handleCancelUpload();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [focusedPhoto, isPanelOpen, pendingFiles.length]);
 
   const currentEra = useMemo(() => {
     if (displayPhotos.length === 0) return { month: "---", year: "---" };
@@ -212,6 +225,21 @@ const Overlay: React.FC<OverlayProps> = ({
                 </div>
               </div>
 
+              {/* 年份过滤 */}
+              {photos.length > 0 && availableYears.length > 1 && (
+                <div className="relative">
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => onYearChange(e.target.value)}
+                    className="appearance-none bg-white/5 border border-white/10 text-white/60 text-xs rounded-2xl pl-4 pr-9 py-3 focus:border-cyan-500/50 outline-none transition-all backdrop-blur-md cursor-pointer hover:bg-white/10"
+                  >
+                    <option value="all" className="bg-gray-900 text-white">{t.filterAll}</option>
+                    {availableYears.map(y => <option key={y} value={y} className="bg-gray-900 text-white">{y}</option>)}
+                  </select>
+                  <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+                </div>
+              )}
+
               {/* 自动播放按钮 */}
               {!focusedPhoto && (
                 <button
@@ -238,6 +266,23 @@ const Overlay: React.FC<OverlayProps> = ({
                 <Settings size={18} className="text-white/60 group-hover:text-white" />
               </button>
             </div>
+
+            {/* 自动播放速度滑块 */}
+            {isAutoPlaying && onAutoPlaySpeedChange && (
+              <div className="flex items-center space-x-3 mt-3 px-1 pointer-events-auto animate-in fade-in slide-in-from-top-2 duration-300">
+                <span className="text-[9px] text-white/30 tracking-widest uppercase">速度</span>
+                <input
+                  type="range"
+                  min="0.05"
+                  max="1"
+                  step="0.05"
+                  value={autoPlaySpeed}
+                  onChange={(e) => onAutoPlaySpeedChange(parseFloat(e.target.value))}
+                  className="w-28 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-cyan-400 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-cyan-400 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-[0_0_8px_#00ffff]"
+                />
+                <span className="text-[9px] text-cyan-400 font-mono w-8">{autoPlaySpeed.toFixed(1)}x</span>
+              </div>
+            )}
           </div>
         </header>
 
@@ -270,8 +315,66 @@ const Overlay: React.FC<OverlayProps> = ({
               </div>
             </div>
           </div>
+
+          {/* 滚动提示 */}
+          {photos.length > 0 && scrollProgress < 0.05 && !focusedPhoto && (
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center space-y-2 animate-bounce pointer-events-none">
+              <span className="text-white/20 text-[10px] tracking-[0.3em] uppercase">{t.scroll}</span>
+              <div className="w-5 h-8 rounded-full border border-white/20 flex items-start justify-center p-1">
+                <div className="w-1 h-2 bg-cyan-400/60 rounded-full animate-[scrollDot_2s_ease-in-out_infinite]"></div>
+              </div>
+            </div>
+          )}
         </footer>
       </div>
+
+      {/* 空状态 — 新用户引导 */}
+      {photos.length === 0 && !focusedPhoto && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center pointer-events-none">
+          <div className="text-center pointer-events-auto max-w-lg px-8 space-y-8 animate-in fade-in duration-1000">
+            {/* 装饰圆环 */}
+            <div className="relative w-32 h-32 mx-auto">
+              <div className="absolute inset-0 rounded-full border border-cyan-500/20 animate-[spin_20s_linear_infinite]"></div>
+              <div className="absolute inset-2 rounded-full border border-cyan-500/10 animate-[spin_15s_linear_infinite_reverse]"></div>
+              <div className="absolute inset-4 rounded-full border border-dashed border-cyan-500/15 animate-[spin_25s_linear_infinite]"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_20px_#00ffff,0_0_40px_rgba(0,255,255,0.3)] animate-pulse"></div>
+              </div>
+            </div>
+
+            {/* 引导文字 */}
+            <div className="space-y-4">
+              <p className="text-cyan-400 text-[10px] font-bold tracking-[0.5em] uppercase animate-pulse">
+                时空矩阵等待初始化
+              </p>
+              <h2 className="text-2xl md:text-3xl font-bold text-white/90 tracking-tight leading-tight">
+                注入你的第一份记忆<br />
+                <span className="text-white/40 font-light text-lg">开启时光隧道穿越之旅</span>
+              </h2>
+              <p className="text-white/30 text-sm leading-relaxed max-w-sm mx-auto">
+                上传照片，AI 将自动解析并生成时空档案。
+                <br />
+                每一张照片都将成为时间线上的一个节点。
+              </p>
+            </div>
+
+            {/* 上传 CTA */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="group relative inline-flex items-center space-x-3 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 hover:border-cyan-500/60 px-8 py-4 rounded-2xl transition-all duration-500 backdrop-blur-md hover:shadow-[0_0_30px_rgba(0,255,255,0.2)]"
+            >
+              <Plus size={20} className="text-cyan-400 group-hover:rotate-90 transition-transform duration-300" />
+              <span className="text-sm uppercase tracking-[0.3em] text-cyan-400 font-bold">{t.upload}</span>
+              <div className="absolute -inset-px rounded-2xl bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10"></div>
+            </button>
+
+            {/* 底部提示 */}
+            <p className="text-white/15 text-[9px] tracking-[0.4em] uppercase">
+              支持 JPG · PNG · WEBP · 批量上传
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 详情卡片 - 增强 AI 交互 */}
       {focusedPhoto && (
@@ -521,6 +624,10 @@ const Overlay: React.FC<OverlayProps> = ({
         @keyframes wave {
           0%, 100% { height: 20%; }
           50% { height: 100%; }
+        }
+        @keyframes scrollDot {
+          0%, 100% { transform: translateY(0); opacity: 1; }
+          50% { transform: translateY(12px); opacity: 0.3; }
         }
       `}</style>
     </>
